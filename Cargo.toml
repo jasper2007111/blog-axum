@@ -1,0 +1,35 @@
+[package]
+name = "blog-axum"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# web framework
+axum = "0.6.20"
+
+# JSON序列化相关
+serde = { version = "1.0.177", features = ["derive"] }
+serde_json = "1.0.104"
+
+tokio = { version = "1.29.1", features = ["full"] }
+
+# 日志相关
+tracing = "0.1.37"
+tracing-subscriber = { version = "0.3.17", features = ["env-filter"]}
+tower-http =  { version = "0.4.3", features = ["trace", "cors"] }
+
+# 数据库
+# "chrono"，这个很关键，不然NaiveDateTime无法使用
+sqlx = { version = "0.7", features = [ "runtime-tokio", "mysql", "chrono"] }
+
+jsonwebtoken = "7.2.0"
+
+argon2 = "0.5.1"
+rand_core = { version = "0.6.4", features = ["std"] }
+chrono = { version = "0.4.24", features = ["serde"] }
+
+validator = { version = "0.15", features = ["derive"] }
+
+
