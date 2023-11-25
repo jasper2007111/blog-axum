@@ -1,13 +1,10 @@
-use axum::extract::Path;
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 
 use axum::{Extension, Json};
-use serde_json::{json, Value};
 use sqlx::MySqlPool;
 
-use crate::errors::CustomError;
-use crate::models::user::{User, LoginModel, RegisterUserModel};
+use crate::models::user::{LoginModel, RegisterUserModel, User};
 
 use serde::{Deserialize, Serialize};
 
@@ -49,7 +46,6 @@ pub struct TokenClaims {
     pub iat: usize,
     pub exp: usize,
 }
-
 
 #[derive(Deserialize)]
 pub struct AuthPayload {
@@ -113,13 +109,12 @@ pub async fn register(
         })
         .map(|hash| hash.to_string())?;
 
-    let sql = format!("INSERT INTO t_user (username, password) VALUES ('{}', '{}')", model.username.to_string(), hashed_password);
-    let _user = sqlx::query(
-        &sql
-    )
-    .execute(&pool)
-    .await
-    .map_err(|e| {
+    let sql = format!(
+        "INSERT INTO t_user (username, password) VALUES ('{}', '{}')",
+        model.username.to_string(),
+        hashed_password
+    );
+    let _user = sqlx::query(&sql).execute(&pool).await.map_err(|e| {
         let error_response = serde_json::json!({
             "status": "fail",
             "message": format!("Database error: {}", e),
@@ -138,26 +133,27 @@ pub async fn login(
     State(state): State<AppState>,
     Json(login_model): Json<LoginModel>,
 ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-    let sql = format!("SELECT * FROM t_user WHERE username ='{}'", &login_model.username);
-    let user = sqlx::query_as::<_, User>(
-       &sql
-    )
-    .fetch_optional(&state.db)
-    .await
-    .map_err(|e| {
-        let error_response = serde_json::json!({
-            "status": "error",
-            "message": format!("Database error: {}", e),
-        });
-        (StatusCode::INTERNAL_SERVER_ERROR, Json(error_response))
-    })?
-    .ok_or_else(|| {
-        let error_response = serde_json::json!({
-            "status": "fail",
-            "message": "Invalid email or password",
-        });
-        (StatusCode::BAD_REQUEST, Json(error_response))
-    })?;
+    let sql = format!(
+        "SELECT * FROM t_user WHERE username ='{}'",
+        &login_model.username
+    );
+    let user = sqlx::query_as::<_, User>(&sql)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|e| {
+            let error_response = serde_json::json!({
+                "status": "error",
+                "message": format!("Database error: {}", e),
+            });
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(error_response))
+        })?
+        .ok_or_else(|| {
+            let error_response = serde_json::json!({
+                "status": "fail",
+                "message": "Invalid email or password",
+            });
+            (StatusCode::BAD_REQUEST, Json(error_response))
+        })?;
 
     let is_valid = match PasswordHash::new(&user.password) {
         Ok(parsed_hash) => Argon2::default()
@@ -190,12 +186,6 @@ pub async fn login(
     )
     .unwrap();
 
-
     tracing::info!("listening on {:?}", login_model);
-
-    // let token = encode(&Header::default(), &claims, &Keys::global().encoding)
-    //     .map_err(|err| Json(err.to_string()))
-    //     .unwrap();
-
     Ok((StatusCode::OK, Json(AuthBody::new(token))))
 }

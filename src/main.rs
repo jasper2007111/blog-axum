@@ -1,22 +1,20 @@
 use axum::{
-    extract::{Extension, State},
+    extract::State,
     http::{Request, StatusCode},
     middleware::{self, Next},
-    response::{IntoResponse, Response},
+    response::IntoResponse,
     routing::{get, post},
     Json, Router,
 };
-use serde::{Deserialize, Serialize};
-use std::{net::SocketAddr, sync::Arc};
+use serde::Serialize;
+use std::net::SocketAddr;
 use tower_http::trace::{self, TraceLayer};
-use tracing::Level;
 
 use jsonwebtoken::decode;
 use jsonwebtoken::DecodingKey;
 use jsonwebtoken::Validation;
 
 use tower_http::cors::{Any, CorsLayer};
-// use tower_http::header::{CONTENT_TYPE};
 
 use axum::http::{
     header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
@@ -117,28 +115,12 @@ async fn handler_404() -> impl IntoResponse {
 
 #[tokio::main]
 async fn main() -> Result<(), sqlx::Error> {
-    // initialize tracing
-    // tracing_subscriber::registry()
-    //     .with(tracing_subscriber::EnvFilter::new(
-    //         std::env::var("tower_http=trace")
-    //             .unwrap_or_else(|_| "blog_axum_logging=debug,tower_http=debug".into()),
-    //     ))
-    //     .with(tracing_subscriber::fmt::layer())
-    //     .init();
-
     tracing_subscriber::fmt()
         .with_target(false)
         .compact()
         .init();
 
     let pool = MySqlPool::connect("mysql://root:123456@127.0.0.1/blog").await?;
-
-    // let state = Arc::new(
-    //     AppState{
-    //         db: pool
-    //     }
-    // );
-
     let state = AppState { db: pool.clone() };
 
     let cors = CorsLayer::new()
@@ -148,7 +130,6 @@ async fn main() -> Result<(), sqlx::Error> {
 
     // build our application with a route
     let app = Router::new()
-        // `GET /` goes to `root`
         .route("/", get(root))
         .route("/api/auth/register", post(controllers::auth::register))
         .route("/api/auth/login", post(controllers::auth::login))
@@ -182,18 +163,17 @@ async fn main() -> Result<(), sqlx::Error> {
             post(controllers::article::edit)
                 .route_layer(middleware::from_fn_with_state(state.clone(), auth)),
         )
-        // .layer(
-        //     TraceLayer::new_for_http()
-        //         .make_span_with(trace::DefaultMakeSpan::new().level(Level::INFO))
-        //         .on_response(trace::DefaultOnResponse::new().level(Level::INFO)),
-        //         )
+        .route(
+            "/api/article/delete/:id",
+            post(controllers::article::delete)
+                .route_layer(middleware::from_fn_with_state(state.clone(), auth)),
+        )
         .with_state(state)
         .layer(TraceLayer::new_for_http())
         .layer(cors)
         .fallback(handler_404);
 
     // run our app with hyper
-    // `axum::Server` is a re-export of `hyper::Server`
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     tracing::debug!("listening on {}", addr);
     axum::Server::bind(&addr)

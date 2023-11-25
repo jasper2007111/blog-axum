@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use validator::Validate;
 
 #[derive(Deserialize, Serialize, sqlx::FromRow)]
 pub struct Article {
